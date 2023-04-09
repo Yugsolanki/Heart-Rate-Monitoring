@@ -5,6 +5,8 @@ import tkinter
 from tkinter import ttk, Tk
 import sv_ttk
 from PIL import Image, ImageTk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class HeartRateEstimationGUI:
     def __init__(self):
@@ -13,22 +15,31 @@ class HeartRateEstimationGUI:
         self.root.title("Heart Rate Estimation")
         self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
 
-        self.label_heart_rate = ttk.Label(self.root, text="Heart Rate: --- bpm", font=("Arial", 14))
-        self.label_heart_rate.pack(pady=10)
+        self.label_heart_rate = ttk.Label(self.root, text="Heart Rate: --- bpm\nSpO2: ---", font=("Arial", 14))
+        self.label_heart_rate.grid(row=0,column=0, columnspan=2, pady=10)
 
         self.canvas_video = tkinter.Canvas(self.root, width=800, height=480)
-        self.canvas_video.pack()
+        self.canvas_video.grid(row=1,column=0)
 
         self.button_start = ttk.Button(self.root, text="Start", command=self.start)
-        self.button_start.pack(pady=10)
+        self.button_start.grid(row=2,column=0, pady=10)
 
         self.button_stop = ttk.Button(self.root, text="Stop", command=self.stop, state=tkinter.DISABLED)
-        self.button_stop.pack(pady=10)
+        self.button_stop.grid(row=2,column=1, pady=10)
 
         self.cap = cv2.VideoCapture(0)
         self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
         self.heart_rate = None
+        self.spo2 = None
         self.running = False
+
+        self.fig = plt.figure(figsize=(6, 4), dpi=80)
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_xlabel('Time (s)')
+        self.ax.set_ylabel('Intensity')
+        self.line, = self.ax.plot([], [])
+        self.canvas_graph = FigureCanvasTkAgg(self.fig, master=self.root)
+        self.canvas_graph.get_tk_widget().grid(row=1,column=1)
 
         self.root.mainloop()
 
@@ -52,8 +63,16 @@ class HeartRateEstimationGUI:
         ret, frame = self.cap.read()
         roi = self.get_roi(frame)
         if roi is not None:
-            self.heart_rate = self.estimate_heart_rate(roi, self.fps)
-            self.label_heart_rate.config(text=f"Heart Rate: {self.heart_rate:.0f} bpm")
+            self.heart_rate, self.spo2 = self.estimate_heart_rate_spo2(roi, self.fps)
+            self.label_heart_rate.config(text=f"Heart Rate: {self.heart_rate:.0f} bpm\nSpO2: {self.spo2:.0f}%")
+            
+            t = time.time() - self.start_time
+            intensity = np.mean(cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY))
+            self.ax.plot(t, intensity, 'ro')
+            self.line.set_data(self.ax.get_lines()[0].get_xdata(), self.ax.get_lines()[0].get_ydata())
+            self.ax.set_xlim(0, t + 10)
+            self.ax.set_ylim(0, 255)
+            self.canvas_graph.draw()
 
         self.photo = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
         canvas_width = self.canvas_video.winfo_width()
@@ -78,7 +97,7 @@ class HeartRateEstimationGUI:
             return roi
         return None
 
-    def estimate_heart_rate(self, roi, fps):
+    def estimate_heart_rate_spo2(self, roi, fps):
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (5, 5), 0)
         thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 2)
@@ -86,7 +105,13 @@ class HeartRateEstimationGUI:
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
         intensity = np.mean(thresh)
         heart_rate = intensity / fps * 10
-        return heart_rate
+        
+        blue_channel, green_channel, red_channel = cv2.split(roi)
+        mean_red = np.mean(red_channel)
+        mean_infrared = np.mean(green_channel)
+        ratio = mean_red / mean_infrared
+        spo2 = -45.060 * ratio * ratio + 30.354 * ratio + 94.845
+        return heart_rate, spo2
         
     def on_exit(self):
         self.cap.release()
