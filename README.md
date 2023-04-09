@@ -11,12 +11,12 @@ Then run the following command
 
 For GUI run
 ```bash
-  pip install numpy opencv-python tk pillow sv_ttk
+  pip install numpy opencv-python tk pillow sv_ttk matplotlib
 ```
 
 For Non-GUI
 ```bash
-   pip install numpy opencv-python 
+   pip install numpy opencv-python matplotlib
 ```
     
 ## Usage/Examples
@@ -31,7 +31,7 @@ For Non-GUI
 If you experience any issues running the application, try the following:
 * Ensure you have python installed on your system.
 * Ensure that your camera is connected to your computer and functioning properly.
-* Ensure that you have installed all necessary dependencies by running the command ```pip install numpy opencv-python tk pillow sv_ttk``` or ```pip install numpy opencv-python```.
+* Ensure that you have installed all necessary dependencies by running the command ```pip install numpy opencv-python tk pillow sv_ttk matplotlib``` or ```pip install numpy opencv-python matplotlib```.
 * Try restarting the application or your computer.
 
 
