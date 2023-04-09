@@ -4,7 +4,8 @@ import time
 import matplotlib.pyplot as plt
 
 class HeartRateAndSpO2Estimation:
-    def __init__(self, camera_id=0):
+    def __init__(self, camera_id=0, show_video=True):
+        self.show_video = show_video
         self.cap = cv2.VideoCapture(camera_id)
         self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
         self.heart_rates = []
@@ -33,9 +34,12 @@ class HeartRateAndSpO2Estimation:
                 heart_rate, spo2 = self.estimate_heart_rate_spo2(roi, self.fps)
                 self.heart_rates.append(heart_rate)
                 self.times.append(time.time() - self.start_time)
-                cv2.putText(frame, f"Heart Rate: {heart_rate:.0f}\nSpO2: {spo2:.2f}", (10, 30),
+                cv2.putText(frame, f"Heart Rate: {heart_rate:.0f} SpO2: {spo2:.2f}%", (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-            cv2.imshow("Heart Rate Estimation", frame)
+            if self.show_video:
+                cv2.imshow("Heart Rate Estimation", frame)
+            else:
+                print(f"Heart Rate: {heart_rate:.0f} bpm\nSpO2: {spo2:.2f}%")  
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 self.stop()
                 break

@@ -18,19 +18,31 @@ class HeartRateEstimationGUI:
         self.label_heart_rate = ttk.Label(self.root, text="Heart Rate: --- bpm\nSpO2: ---", font=("Arial", 14))
         self.label_heart_rate.grid(row=0,column=0, columnspan=2, pady=10)
 
-        self.canvas_video = tkinter.Canvas(self.root, width=800, height=480)
+        self.frame_video = ttk.Frame(self.root)
+        self.frame_video.grid(row=1, column=0, columnspan=2, pady=10, padx=20)
+
+        self.canvas_video = tkinter.Canvas(self.frame_video, width=800, height=480)
         self.canvas_video.grid(row=1,column=0)
+        
+        self.frame_buttons = ttk.Frame(self.root)
+        self.frame_buttons.grid(row=2, column=0, columnspan=2, pady=10)
+        
+        self.button_start = ttk.Button(self.frame_buttons, text="Start", command=self.start)
+        self.button_start.grid(row=2,column=0, padx=(0,10))
 
-        self.button_start = ttk.Button(self.root, text="Start", command=self.start)
-        self.button_start.grid(row=2,column=0, pady=10)
-
-        self.button_stop = ttk.Button(self.root, text="Stop", command=self.stop, state=tkinter.DISABLED)
-        self.button_stop.grid(row=2,column=1, pady=10)
+        self.button_stop = ttk.Button(self.frame_buttons, text="Stop", command=self.stop, state=tkinter.DISABLED)
+        self.button_stop.grid(row=2,column=1, padx=(10,0))
+        
+        self.frame_buttons.grid_columnconfigure(0, weight=1)
+        self.frame_buttons.grid_columnconfigure(1, weight=1)
 
         self.cap = cv2.VideoCapture(0)
         self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
         self.heart_rate = None
         self.spo2 = None
+        self.heart_rates = []
+        self.spo2_levels = []
+        self.times = []
         self.running = False
 
         self.fig = plt.figure(figsize=(6, 4), dpi=80)
@@ -38,7 +50,7 @@ class HeartRateEstimationGUI:
         self.ax.set_xlabel('Time (s)')
         self.ax.set_ylabel('Intensity')
         self.line, = self.ax.plot([], [])
-        self.canvas_graph = FigureCanvasTkAgg(self.fig, master=self.root)
+        self.canvas_graph = FigureCanvasTkAgg(self.fig, master=self.frame_video)
         self.canvas_graph.get_tk_widget().grid(row=1,column=1)
 
         self.root.mainloop()
@@ -64,11 +76,15 @@ class HeartRateEstimationGUI:
         roi = self.get_roi(frame)
         if roi is not None:
             self.heart_rate, self.spo2 = self.estimate_heart_rate_spo2(roi, self.fps)
+            self.heart_rates.append(self.heart_rate)
+            self.spo2_levels.append(self.spo2)
+            self.times.append(time.time() - self.start_time)
             self.label_heart_rate.config(text=f"Heart Rate: {self.heart_rate:.0f} bpm\nSpO2: {self.spo2:.0f}%")
             
             t = time.time() - self.start_time
             intensity = np.mean(cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY))
-            self.ax.plot(t, intensity, 'ro')
+            self.ax.scatter(self.times, self.heart_rates, color='red', label='Heart Rate')
+            self.ax.scatter(self.times, self.spo2_levels, color='blue', label='SpO2')
             self.line.set_data(self.ax.get_lines()[0].get_xdata(), self.ax.get_lines()[0].get_ydata())
             self.ax.set_xlim(0, t + 10)
             self.ax.set_ylim(0, 255)
